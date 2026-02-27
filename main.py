@@ -64,10 +64,7 @@ async def save_uploaded_image(file: UploadFile) -> tuple[Path, str, bytes]:
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
     image: UploadFile = File(..., description="Image file (jpg, png, etc.)"),
-    moisture_data: float = Form(..., description="Moisture percentage (0-100)"),
-    temperature: float = Form(..., description="Soil temperature in Celsius"),
-    humidity: float = Form(..., description="Soil humidity percentage"),
-    ph: float = Form(..., description="Soil pH level"),
+    moisture_data: float = Form(..., description="Soil moisture sensor value (0-4096). Below 3000=wet, 3000+=dry"),
 ):
     # Save incoming image to uploads folder
     saved_path, mime_ext, image_bytes = await save_uploaded_image(image)
@@ -85,10 +82,8 @@ async def analyze(
     prompt = f"""Analyze this image of soil/waste along with the sensor data below.
 
 SENSOR DATA:
-- Moisture: {moisture_data}%
-- Soil Temperature: {temperature}°C
-- Soil Humidity: {humidity}%
-- pH: {ph}
+- Soil Moisture (raw 0-4096): {moisture_data}
+  Rule: below 3000 = wet, 3000 or above = dry
 
 Determine:
 1. Is the material WET or DRY based on the image and sensor data?

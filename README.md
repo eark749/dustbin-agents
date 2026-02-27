@@ -28,10 +28,7 @@ Analyzes waste images and sensor data (moisture, soil) using OpenAI's GPT-4 Visi
 | Field           | Type   | Description                    |
 |----------------|--------|--------------------------------|
 | `image`        | File   | Image file (jpg, png, etc.)   |
-| `moisture_data`| number | Moisture percentage (0-100)    |
-| `temperature`  | number | Soil temperature in Celsius    |
-| `humidity`     | number | Soil humidity percentage       |
-| `ph`           | number | Soil pH level                  |
+| `moisture_data`| number | Soil moisture sensor (0-4096). Below 3000=wet, 3000+=dry |
 
 ### Response
 
