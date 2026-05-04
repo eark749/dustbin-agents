@@ -70,14 +70,17 @@ async def analyze(
     saved_path, mime_ext, image_bytes = await save_uploaded_image(image)
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="OPENAI_API_KEY not set. Add it to your .env file.",
+            detail="OPENROUTER_API_KEY not set. Add it to your .env file.",
         )
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
 
     prompt = f"""Analyze this image of soil/waste along with the sensor data below.
 
@@ -96,7 +99,7 @@ Respond with ONLY valid JSON in this exact format (no markdown, no extra text):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             messages=[
                 {
                     "role": "user",
