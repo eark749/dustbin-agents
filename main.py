@@ -3,7 +3,6 @@ Dustbin Flap Control API
 Analyzes image + sensor data to determine if waste is wet/dry and flap direction (left/right).
 """
 
-import base64
 import json
 import os
 from datetime import datetime
@@ -11,7 +10,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from openai import OpenAI
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,19 +68,14 @@ async def analyze(
 ):
     # Save incoming image to uploads folder
     saved_path, mime_ext, image_bytes = await save_uploaded_image(image)
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="OPENROUTER_API_KEY not set. Add it to your .env file.",
+            detail="GEMINI_API_KEY not set. Add it to your .env file.",
         )
 
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+    client = genai.Client(api_key=api_key)
 
     prompt = f"""Analyze this image of soil/waste along with the sensor data below.
 
@@ -98,26 +93,23 @@ Respond with ONLY valid JSON in this exact format (no markdown, no extra text):
 {{"condition": "wet" or "dry", "flap_direction": "left" or "right", "reasoning": "brief explanation"}}"""
 
     try:
-        response = client.chat.completions.create(
-            model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/{mime_ext};base64,{image_b64}"
-                            },
-                        },
-                    ],
-                }
-            ],
-            max_tokens=300,
+        image_part = types.Part.from_bytes(
+            data=image_bytes,
+            mime_type=f"image/{mime_ext}",
         )
 
-        content = response.choices[0].message.content.strip()
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[image_part, prompt],
+        )
+
+        raw_content = response.text
+        if not raw_content:
+            raise HTTPException(
+                status_code=500,
+                detail="Model returned empty response.",
+            )
+        content = raw_content.strip()
         # Handle potential markdown code blocks
         if content.startswith("```"):
             content = content.split("```")[1]
