@@ -26,9 +26,9 @@ app = FastAPI(
 
 
 class AnalyzeResponse(BaseModel):
-    condition: str = Field(..., description="'wet' or 'dry'")
-    flap_direction: str = Field(..., description="'left' or 'right'")
-    reasoning: str = Field(..., description="Brief explanation of the decision")
+    condition: str = Field(..., description="'wet' (biodegradable) or 'dry' (non-biodegradable)")
+    flap_direction: str = Field(..., description="'left' (wet/biodegradable) or 'right' (dry/non-biodegradable)")
+    reasoning: str = Field(..., description="Waste type identification and classification reasoning")
     saved_image_path: str = Field(..., description="Path where the image was saved")
 
 
@@ -77,20 +77,26 @@ async def analyze(
 
     client = genai.Client(api_key=api_key)
 
-    prompt = f"""Analyze this image of soil/waste along with the sensor data below.
+    prompt = f"""Analyze this image of waste to classify it for proper dustbin sorting.
 
-SENSOR DATA:
-- Soil Moisture (raw 0-4096): {moisture_data}
-  Rule: below 3000 = wet, 3000 or above = dry
+CLASSIFICATION RULES (based on waste type, NOT moisture):
+- WET waste (left flap) = biodegradable/compostable items: food scraps, fruit peels, vegetable waste, leftover food, tea bags, coffee grounds, garden waste, leaves, flowers, paper soiled with food, biodegradable packaging
+- DRY waste (right flap) = non-biodegradable/non-decomposable items: plastic bottles, plastic bags, metal cans, glass bottles, rubber, thermocol, styrofoam, e-waste, aluminum foil (clean), tetra packs, chips packets, wrappers, ceramics, synthetic cloth
+
+IMPORTANT: Classification is based on whether the item DECOMPOSES NATURALLY, not whether it is physically wet or dry. A wet plastic bottle is still DRY waste. A dry banana peel is still WET waste.
+
+SENSOR DATA (supplementary info only):
+- Soil Moisture sensor (raw 0-4096): {moisture_data}
+  (Below 3000 = moist environment, 3000+ = dry environment)
+  This is supplementary context only. The waste TYPE from the image determines the bin.
 
 Determine:
-1. Is the material WET or DRY based on the image and sensor data?
-2. Should the dustbin flap open LEFT or RIGHT?
-   - LEFT = for wet/organic/compostable waste
-   - RIGHT = for dry/recyclable waste
+1. What type of waste is shown in the image?
+2. Is it biodegradable (WET) or non-biodegradable (DRY)?
+3. Flap direction: LEFT for wet/biodegradable, RIGHT for dry/non-biodegradable
 
 Respond with ONLY valid JSON in this exact format (no markdown, no extra text):
-{{"condition": "wet" or "dry", "flap_direction": "left" or "right", "reasoning": "brief explanation"}}"""
+{{"condition": "wet" or "dry", "flap_direction": "left" or "right", "reasoning": "brief explanation of waste type and why it belongs in that category"}}"""
 
     try:
         image_part = types.Part.from_bytes(
